@@ -15,7 +15,7 @@ Two kinds of data are required for this analysis.
 This module is a work in progress, designed to capture common functionality which recurs in analysis of single-molecule FRET data. It contains two main components: the `src` folder which contains general purpose functions.
 
 ```
-git submodule add https://github.com/PPR-project/smFRET-experiment-template_v2 smfret
+git submodule add https://github.com/nmarzano/smFRET_module smfret
 ```
 ## General usage notes
 
