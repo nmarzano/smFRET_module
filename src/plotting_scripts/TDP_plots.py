@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from src.processing_scripts import TDP_processing as ps
+from smfret.src.processing_scripts import TDP_processing as ps
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os as os

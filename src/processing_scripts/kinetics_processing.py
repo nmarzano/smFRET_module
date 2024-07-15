@@ -1,6 +1,6 @@
 import pandas as pd
 import functools
-from src.Utilities.Data_analysis import cleanup_dwell
+from smfret.src.Utilities.Data_analysis import cleanup_dwell
 
 def count_chaperone_events(dfs, thresh, fps_clean, thresh_clean):
     """Function to count the number of times that each molecule will go below a defined threshold from above the set threshold 'i.e. chaperone on' and vice versa 'i.e. chaperone off'

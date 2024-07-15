@@ -4,7 +4,7 @@ import math
 import pandas as pd
 from scipy.signal import savgol_filter
 import os
-from src.processing_scripts import trace_processing as ps
+from smfret.src.processing_scripts import trace_processing as ps
 
 
 # ------------------ If you want to plot all molecules with a time threshold greater than a defined point ------------------------

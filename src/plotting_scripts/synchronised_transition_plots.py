@@ -3,7 +3,7 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import os
-from src.processing_scripts import synchronised_transition_processing as ps
+from smfret.src.processing_scripts import synchronised_transition_processing as ps
 
 
 

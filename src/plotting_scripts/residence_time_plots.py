@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import Utilities.Data_analysis as uda
 import os
-from src.processing_scripts import residence_time_processing as ps 
+from smfret.src.processing_scripts import residence_time_processing as ps 
 
 
 def plot_violin(data, save_loc, palette='BuPu', scale="y_axis"):

@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from src.processing_scripts import timelapse_hist_processing as ps
-from src.Utilities import Data_analysis as util
+from smfret.src.processing_scripts import timelapse_hist_processing as ps
+from smfret.src.Utilities import Data_analysis as util
 
 def plot_data_col(df, thresh, fit_type, xlim, ylim, save_loc, palette, data):
     """Plots the proportion of time each molecule spends below a threshold (defined previously in 1A-plot-histogram) as the mean +- SE as a function of time. This function

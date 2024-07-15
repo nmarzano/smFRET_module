@@ -4,8 +4,8 @@ import math
 import pandas as pd
 import glob as glob
 import os as os
-from src.Utilities import Data_analysis as util
-from src.processing_scripts import heatmap_liveflow_processing as ps
+from smfret.src.Utilities import Data_analysis as util
+from smfret.src.processing_scripts import heatmap_liveflow_processing as ps
 
 
 def plot_heatmap(df, gridsize, bins_hex, save_loc, plot_type='hex'):

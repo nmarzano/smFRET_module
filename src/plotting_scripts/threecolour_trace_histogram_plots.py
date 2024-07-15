@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 import os
 from deepfret_nm import DeepFRET_NM
-from src.Utilities import Data_analysis as util
-from src.processing_scripts import threecolour_processing as ps 
+from smfret.src.Utilities import Data_analysis as util
+from smfret.src.processing_scripts import threecolour_processing as ps 
 
 # ------------------- plots two graphs, one with the PPR FRET and another with whatever FRET you want to look at --------------------
 

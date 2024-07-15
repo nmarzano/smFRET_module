@@ -3,7 +3,7 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import os
-from src.processing_scripts import threecolour_processing as ps
+from smfret.src.processing_scripts import threecolour_processing as ps
 
 
 def plot_synchronised_transition_3color(dfs, index_to_plot, exposure_seconds, list_to_drop, order, frame_from_trans, save_loc, label=''):

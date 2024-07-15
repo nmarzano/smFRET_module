@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib
-from src.Utilities import Data_analysis as util
+from smfret.src.Utilities import Data_analysis as util
 import pandas as pd
-from src.processing_scripts import timelapse_hist_processing as ps
+from smfret.src.processing_scripts import timelapse_hist_processing as ps
 
 
 def ridgeline_plot(df, save_loc, dict_key, font, palette='BuPu'):
