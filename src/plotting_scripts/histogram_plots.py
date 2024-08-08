@@ -76,7 +76,8 @@ def plot_hist_type(df, order, labels, save_loc, kind='bar'):
             fill=False, 
             kde=True,
             linewidth=1.5, 
-            alpha=0.25)
+            alpha=0.25, 
+            element='step')
     plt.xlim(0, 1, 10)
     plt.xlabel("FRET")
     plt.legend([labels[treatment] for treatment in reversed(order)], loc='best', fontsize=12, title='')    

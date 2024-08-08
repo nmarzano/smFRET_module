@@ -4,7 +4,7 @@ import seaborn as sns
 import pandas as pd
 import os
 from lmfit import models
-import src.Utilities.Data_analysis as uda
+import smfret.src.Utilities.Data_analysis as uda
 
 
 def fit_3gauss_dif_constrained_nativespont(df, treatment, save_loc, mu_1, sigma_1, amplitude_1, gamma_1, mu_2, sigma_2, amplitude_2, mu_3, sigma_3, amplitude_3, gamma_3):
