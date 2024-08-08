@@ -110,7 +110,7 @@ def plot_time_below_thresh(df, order, thresh, save_loc, palette='BuPu'):
 
 # -------------------------------- MASTER FUNCTION -----------------------------------------
 
-def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2):
+def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2, timepoint=False):
     # --------- the first item in the tuple will be the name that goes into the graph legend -------------
     dict_key = list(data_paths.keys())
     # -------- Data from all data sets in the dict will be imported and concatenated into a single dataframe. Outliers wil be removed -----------
@@ -148,21 +148,23 @@ def master_histogram_func(data_paths, output_folder="Experiment_X-description/py
         filt_df.append(df)
     filt_dfs = pd.concat(filt_df)
     plot_time_below_thresh(filt_dfs, order_normal, thresh, save_loc=output_folder, palette='BuPu')
+    if timepoint:
+        timepoint={
+        f'{order_normal[0]}':6,
+        f'{order_normal[1]}':12,
+        f'{order_normal[2]}':18,
+        f'{order_normal[3]}':24,
+        f'{order_normal[4]}':30, 
+        f'{order_normal[5]}':36,
+        f'{order_normal[6]}':42,
+        f'{order_normal[7]}':48,
+        f'{order_normal[8]}':54,
+        f'{order_normal[9]}':60,
+        }
 
-    timepoint={
-    f'{order_normal[0]}':6,
-    f'{order_normal[1]}':12,
-    f'{order_normal[2]}':18,
-    f'{order_normal[3]}':24,
-    f'{order_normal[4]}':30, 
-    f'{order_normal[5]}':36,
-    f'{order_normal[6]}':42,
-    f'{order_normal[7]}':48,
-    f'{order_normal[8]}':54,
-    f'{order_normal[9]}':60,
-    }
-
-    ps.concat_df_fit_data(filt_dfs, output_folder, timepoint)
+        ps.concat_df_fit_data(filt_dfs, output_folder, timepoint)
+    else:
+        filt_dfs = []
     return compiled_df, filt_dfs
 
 
