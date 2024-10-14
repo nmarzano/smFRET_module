@@ -111,29 +111,34 @@ def plot_time_below_thresh(df, order, thresh, save_loc, palette='BuPu'):
 # -------------------------------- MASTER FUNCTION -----------------------------------------
 
 def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2, timepoint=False):
-    # --------- the first item in the tuple will be the name that goes into the graph legend -------------
-    dict_key = list(data_paths.keys())
-    # -------- Data from all data sets in the dict will be imported and concatenated into a single dataframe. Outliers wil be removed -----------
-    compiled_df = []
-    for data_name, (label, data_path) in data_paths.items():
-        imported_data = util.file_reader(data_path, 'hist')
-        cleaned_raw = util.remove_outliers(imported_data, 'hist') # add "idealized" after imported_data to get idealized histograms
-        cleaned_raw["treatment_name"] = data_name
-        compiled_df.append(cleaned_raw)
-    compiled_df = pd.concat(compiled_df)   #### .rename(columns = {1:"test", 3:"test2"}) ## can rename individually if needed
-    compiled_df.columns = ["frames", "donor", "acceptor", "FRET", "idealized FRET", 'molecule_number', "treatment_name"]
-    compiled_df.to_csv(f'{output_folder}/Cleaned_FRET_histogram_data.csv', index=False)
+    if isinstance(data_paths, dict):    # --------- the first item in the tuple will be the name that goes into the graph legend -------------
+        dict_key = list(data_paths.keys())
+        # -------- Data from all data sets in the dict will be imported and concatenated into a single dataframe. Outliers wil be removed -----------
+        compiled_df = []
+        for data_name, (label, data_path) in data_paths.items():
+            imported_data = util.file_reader(data_path, 'hist')
+            cleaned_raw = util.remove_outliers(imported_data, 'hist') # add "idealized" after imported_data to get idealized histograms
+            cleaned_raw["treatment_name"] = data_name
+            compiled_df.append(cleaned_raw)
+        compiled_df = pd.concat(compiled_df)   #### .rename(columns = {1:"test", 3:"test2"}) ## can rename individually if needed
+        compiled_df.columns = ["frames", "donor", "acceptor", "FRET", "idealized FRET", 'molecule_number', "treatment_name"]
+        compiled_df.to_csv(f'{output_folder}/Cleaned_FRET_histogram_data.csv', index=False)
+        labels = {data_name:label for data_name, (label, data_path) in data_paths.items()}
+        order = list(reversed(dict_key))
+
+    else:
+        compiled_df = pd.read_csv(f'{output_folder}/Cleaned_FRET_histogram_data.csv')
+        labels = {val: val for val in compiled_df['treatment_name'].unique()}
+        order = list(reversed(labels.keys()))
 
     # ------------------------- To plot ridgeline histograms -------------------------
 
-    labels = {data_name:label for data_name, (label, data_path) in data_paths.items()}
-    order = list(reversed(dict_key))
     font = {'weight' : 'normal', 'size'   : 12 }
     matplotlib.rcParams['font.sans-serif'] = "Arial"
     matplotlib.rcParams['font.family'] = "sans-serif"
     matplotlib.rc('font', **font)
     plt.rcParams['svg.fonttype'] = 'none'
-    ridgeline_plot(compiled_df, output_folder, dict_key, font, 'BuPu')
+    ridgeline_plot(compiled_df, output_folder, labels, font, 'BuPu')
 
 
     plot_hist_type(compiled_df, order, labels, output_folder,kind='bar')
