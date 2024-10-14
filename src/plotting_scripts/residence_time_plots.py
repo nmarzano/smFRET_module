@@ -182,11 +182,12 @@ def cumulative_hist_residence_plot(filt_df, fits_df, palette, save_loc, binwidth
     plt.show()
 
 
-def master_residence_time_func(output_folder, data_paths_violin, order, palette='BuPu', FRET_thresh=0.2, binwidth=10, cumulative_hist_binwidth=2, fit_xlim=300, plot_xlim=300):
+def master_residence_time_func(output_folder, data_paths_violin, order, palette='BuPu', FRET_thresh=0.3, binwidth=10, cumulative_hist_binwidth=2, fit_xlim=300, plot_xlim=300):
     plot_export = f'{output_folder}/Residence_time_plots/'
     if not os.path.exists(plot_export):
         os.makedirs(plot_export)
     cumulative_dwell = pd.read_csv(f'{output_folder}/cumulative_dwell.csv')
+    cumulative_dwell['repeat'] = cumulative_dwell['Molecule'].str.split('_').str[-1]
 
     test=[]
     for data_name, data_path in data_paths_violin.items():
@@ -247,7 +248,7 @@ def master_residence_time_func(output_folder, data_paths_violin, order, palette=
     col_cum_dwell.drop([col for col in col_cum_dwell.columns.tolist() if 'y_axis_log10' in col], axis=1, inplace=True)
     col_cum_dwell.columns = ['mean_residence_time', 'sem', 'n']
     col_cum_dwell.reset_index(inplace=True)
-    cumulative_dwell.columns = ['molecule', 'FRET_before', 'FRET_after', 'Time', 'number_of_frames', 'treatment', 'transition_type', 'shift', 'is_in_sequence', 'CumulativeTime', 'CumulativeTime(s)', 'transition_name']
+    cumulative_dwell.columns = ['molecule', 'FRET_before', 'FRET_after', 'Time', 'number_of_frames', 'treatment', 'repeat', 'transition_type', 'shift', 'is_in_sequence', 'CumulativeTime', 'CumulativeTime(s)', 'transition_name']
     col_cum_dwell.columns = ['treatment', 'transition_type', 'mean_residence_time', 'sem', 'n']
     col_cum_dwell.to_csv(f"{output_folder}/summary_cum_dwell.csv", index=False)
     col_cum_dwell_filt = col_cum_dwell[(col_cum_dwell['transition_type']=='low-high')|(col_cum_dwell['transition_type']=='high-low')]
