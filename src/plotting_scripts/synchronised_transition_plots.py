@@ -94,18 +94,21 @@ def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_s
     ax2.legend('')
     fig.savefig(f'{save_loc}/synchronised_release{"_"+label}.svg', dpi = 600)
     plt.show()
+    return filt_data, filt_data2
 
 
 # -------------------- Code to plot the percentage transition data -------------------------------
 
 def plot_summary_transition(save_loc, order, df, palette, filt=True):
-    melted_data = df.melt(id_vars='treatment')
+    melted_data = df.melt(id_vars=['treatment', 'repeat'])
     fig, ax = plt.subplots()
     sns.set_style('ticks',{'grid.linestyle':'--', 'font_scale': 1.5})
     if filt == False:
         sns.barplot(data=melted_data, y='value', x='variable', hue='treatment', palette=palette, hue_order=order, edgecolor='black')
     else:
-        sns.barplot(data=melted_data[melted_data['variable']=='% DnaK release are consecutive'], y='value', x='variable', hue='treatment', palette='BuPu', hue_order=order, edgecolor='black')
+        ax = sns.barplot(data=melted_data[melted_data['variable']=='% DnaK release are consecutive'], y='value', x='treatment', palette='BuPu', hue_order=order, edgecolor='black', fill=False)
+        sns.scatterplot(data=melted_data[melted_data['variable']=='% DnaK release are consecutive'], y='value', x='treatment', hue='treatment', palette='BuPu', hue_order=order, edgecolor='black', ax=ax, s=200)
+
     plt.xlabel('')
     plt.xticks(rotation=45)
     plt.legend(title='')
@@ -143,7 +146,7 @@ def plot_FRET_after_release(plot_export, df, order, palette='BuPu'):
 
 # -------------------------------- MASTER FUNCTION -----------------------------------------
     
-def master_plot_synchronised_transitions(order, output_folder='Experiment_1-description/python_results', exposure=0.2, frames_to_plot=50, FRET_before=0.5,FRET_after=0.5, datatype='Proportion', filt=True, palette='BuPu'):
+def master_plot_synchronised_transitions(order, output_folder='Experiment_1-description/python_results', exposure=0.2, frames_to_plot=50, FRET_before=0.3,FRET_after=0.3, datatype='Proportion', filt=True, palette='BuPu'):
     plot_export = f'{output_folder}/synchronised_transitions/'
     if not os.path.exists(plot_export):
         os.makedirs(plot_export)
@@ -170,10 +173,10 @@ def master_plot_synchronised_transitions(order, output_folder='Experiment_1-desc
     dnak_stable_binding = ps.filt_df_to_plot(calculated_transitions_df, FRET_before, FRET_after, 'high_to_low', frames_to_plot)
     plot_synchronised_transition(calculated_transitions_df, dnak_stable_binding, exposure, order, frames_to_plot, plot_export, palette, label='binding')
 
-    col =[]
+    col = []
     for  treatment, df in calculated_transitions_df.groupby('treatment_name'):
         transition_data = df[df['transition_point']==True]
-        transition_data['FRET_increase']=transition_data['FRET_before'] < transition_data['FRET_after'] 
+        transition_data['FRET_increase'] = transition_data['FRET_before'] < transition_data['FRET_after'] 
         consecutive_identified = ps.determine_first_transition_in_sequence(transition_data)
         col.append(consecutive_identified)
     consecutive_data = pd.concat(col)
@@ -205,7 +208,7 @@ def master_plot_synchronised_transitions(order, output_folder='Experiment_1-desc
 
     plot_FRET_after_release(plot_export, combined_consec_nonconsec, order)
 
-    plot_synchronised_transition2(calculated_transitions_df, consecutive_from_dnak_release, nonconsecutive_from_dnak_release,exposure, order, frames_to_plot, plot_export, palette,  'consecutive_transitions')
+    filt_data, filt_data2 = plot_synchronised_transition2(calculated_transitions_df, consecutive_from_dnak_release, nonconsecutive_from_dnak_release,exposure, order, frames_to_plot, plot_export, palette,  'consecutive_transitions')
 
-    return percent_trans_meet_criteria_df, calculated_transitions_df, consecutive_from_dnak_release, nonconsecutive_from_dnak_release
+    return percent_trans_meet_criteria_df, calculated_transitions_df, consecutive_from_dnak_release, nonconsecutive_from_dnak_release, filt_data, filt_data2
 

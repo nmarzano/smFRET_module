@@ -25,14 +25,15 @@ def master_tdp_cleanup_func(output_folder='Figure3b-overhangs_9-10-11-22-only_co
 
     compiled_filt = []
     for treatment, df in compiled_data.groupby('treatment_name'):
-        treatment_df = compiled_data[compiled_data['treatment_name'] == treatment]
-        treatment_df2 = treatment_df.filter(items=['idealized FRET','molecule_number'])
+        treatment_df = compiled_data[compiled_data['treatment_name']==treatment]
+        treatment_df2 = treatment_df.filter(items=['idealized FRET','unique_id'])
         treatment_dwell = ps.calculate_dwell_time(treatment_df2)
         treatment_trans = ps.generate_transitions(treatment_dwell)
         treatment_cleaned = ps.remove_outliers_tdp(treatment_trans)
         treatment_cleaned["treatment_name"] = treatment
         compiled_filt.append(treatment_cleaned)
-    compiled_TDP = pd.concat(compiled_filt)   
+    compiled_TDP = pd.concat(compiled_filt)
+    compiled_TDP['repeat'] = compiled_TDP['Molecule'].str.split('_').str[-1]
     compiled_TDP.to_csv(f'{output_folder}/TDP_cleaned.csv', index=False)
 
 
@@ -67,6 +68,7 @@ def master_tdp_cleanup_func(output_folder='Figure3b-overhangs_9-10-11-22-only_co
         combined_data.append(test2)
     cumulative_dwell_transitions = pd.concat(combined_data)
     cumulative_dwell_transitions.to_csv(f'{output_folder}/cumulative_dwell.csv', index=False)
+    return compiled_TDP
 
 
 def master_TDP_plot(input_folder='Experiment_1-description/python_results', filt=True):

@@ -14,7 +14,7 @@ def calculate_dwell_time(df):
         dataframe: returns dataframe containing the duration of each FRET state from each molecule
     """
     df_test2 = []
-    for Molecule, dfs in df.groupby('molecule_number'):
+    for Molecule, dfs in df.groupby('unique_id'):
         frame_length = len(dfs)
         test = dfs.groupby([dfs['idealized FRET'].ne(dfs['idealized FRET'].shift()).cumsum(), 'idealized FRET']).size()
         test = test.reset_index(level=1, drop=False)

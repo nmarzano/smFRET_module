@@ -1,5 +1,7 @@
 import shutil
 import os
+from smfret.src.Utilities import Data_analysis as util
+import pandas as pd
 
 def move_folders(input_folders, filetype, output_folder):
     for folder in input_folders:
@@ -28,3 +30,19 @@ def locate_raw_drive_files(input_path='raw_data/raw_data.txt'):
     return data_path
 
 
+def combine_technical_repeats(data, output_folder):
+    data['Directory'] = data['Directory'].str.replace('\\', '/')
+    data.dropna(inplace=True)
+    compiled_df = []
+    for (treatment, repeat, directory), df in data.groupby(['Treatment', 'Repeat', 'Directory']):
+        df
+        imported_data = util.file_reader(directory, 'hist')
+        cleaned_raw = util.remove_outliers(imported_data, 'hist') # add "idealized" after imported_data to get idealized histograms
+        cleaned_raw["treatment_name"] = treatment
+        cleaned_raw["repeat"] = repeat
+        cleaned_raw["unique_id"] = cleaned_raw['molecule number'].astype(str) + '_' + cleaned_raw['treatment_name'] + '_' + cleaned_raw['repeat'].astype(str)
+        compiled_df.append(cleaned_raw)
+    compiled_df = pd.concat(compiled_df)   #### .rename(columns = {1:"test", 3:"test2"}) ## can rename individually if needed
+    compiled_df.columns = ["frames", "donor", "acceptor", "FRET", "idealized FRET", 'molecule_number', "treatment_name", 'repeat', 'unique_id']
+    compiled_df.to_csv(f'{output_folder}/Cleaned_FRET_histogram_data.csv', index=False)
+    return compiled_df
