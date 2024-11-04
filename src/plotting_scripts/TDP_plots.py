@@ -5,11 +5,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os as os
 
-def tdp_plot(treatment):
+def tdp_plot(treatment, palette):
     plt.rcParams['svg.fonttype']='none'
     plot1 = plt.figure(figsize=(6, 6))
     plot1 = sns.JointGrid(data=treatment, x=treatment["FRET_before"], y=treatment["FRET_after"], xlim=(0,1), ylim=(0, 1))
-    plot1.plot_joint(sns.kdeplot, cmap="BuPu", shade=bool, cbar=False, cbar_kws={'format': '%.0f%%', 'ticks': [0, 100]}, thresh=0.05, gridsize=100)
+    plot1.plot_joint(sns.kdeplot, cmap=palette, shade=bool, cbar=False, cbar_kws={'format': '%.0f%%', 'ticks': [0, 100]}, thresh=0.05, gridsize=100)
     plot1.plot_joint(sns.kdeplot, thresh=0.05, gridsize=100, color='black')
     plot1.ax_joint.set_xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
     plot1.ax_joint.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
@@ -71,7 +71,7 @@ def master_tdp_cleanup_func(output_folder='Figure3b-overhangs_9-10-11-22-only_co
     return compiled_TDP
 
 
-def master_TDP_plot(input_folder='Experiment_1-description/python_results', filt=True):
+def master_TDP_plot(palette, input_folder='Experiment_1-description/python_results', filt=True, if_chap=True):
     output_folder = f'{input_folder}/TDP_plots'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -81,6 +81,16 @@ def master_TDP_plot(input_folder='Experiment_1-description/python_results', filt
     else:
         filename = f'{input_folder}/TDP_cleaned_filt.csv'
     TDP = pd.read_csv(filename, header="infer")
-    for treatment, df in TDP.groupby('treatment_name'):
-        treatments = TDP[TDP["treatment_name"] == treatment]
-        tdp_plot(treatments).savefig(f"{output_folder}/TDP_plot_{treatment}.svg", dpi=600)
+    TDP['protein'] = TDP['treatment_name'].str.split('_').str[0]
+    TDP['treatment'] = TDP['treatment_name'].str.split('_').str[-1]
+    if if_chap:
+        for (protein, treatment), df in TDP.groupby(['protein', 'treatment']):
+            treatments = TDP[TDP["treatment_name"] == treatment]
+            if treatment == 'KJEG':
+                tdp_plot(df, palette=palette[protein]).savefig(f"{output_folder}/TDP_plot_{treatment}_{protein}.svg", dpi=600)
+            else:
+                tdp_plot(df, palette='Greys').savefig(f"{output_folder}/TDP_plot_{treatment}_{protein}.svg", dpi=600)
+    else:
+        for treatment, df in TDP.groupby('treatment_name'):
+            treatments = TDP[TDP["treatment_name"] == treatment]
+            tdp_plot(treatments).savefig(f"{output_folder}/TDP_plot_{treatment}.svg", dpi=600)

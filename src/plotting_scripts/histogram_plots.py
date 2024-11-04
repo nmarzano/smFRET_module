@@ -110,7 +110,7 @@ def plot_time_below_thresh(df, order, thresh, save_loc, palette='BuPu'):
 
 # -------------------------------- MASTER FUNCTION -----------------------------------------
 
-def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2, timepoint=False):
+def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2):
     if isinstance(data_paths, dict):    # --------- the first item in the tuple will be the name that goes into the graph legend -------------
         dict_key = list(data_paths.keys())
         # -------- Data from all data sets in the dict will be imported and concatenated into a single dataframe. Outliers wil be removed -----------
@@ -144,7 +144,7 @@ def master_histogram_func(data_paths, output_folder="Experiment_X-description/py
     plot_hist_type(compiled_df, order, labels, output_folder,kind='bar')
     filt_df = []
     order_normal = list(reversed(order))
-    for (treatment, molecule), df in compiled_df.groupby(['treatment_name', 'molecule_number']):
+    for (treatment, molecule), df in compiled_df.groupby(['treatment_name', 'unique_id']):
         mol_total = len(df)
         mol_below_thresh = len(df[df['FRET']<thresh])
         percent_below_thresh = (mol_below_thresh/mol_total)*100
@@ -152,24 +152,8 @@ def master_histogram_func(data_paths, output_folder="Experiment_X-description/py
         df = df.iloc[[0]]
         filt_df.append(df)
     filt_dfs = pd.concat(filt_df)
+    filt_dfs.to_csv(f'{output_folder}/filt_dfs.csv')
     plot_time_below_thresh(filt_dfs, order_normal, thresh, save_loc=output_folder, palette='BuPu')
-    if timepoint:
-        timepoint={
-        f'{order_normal[0]}':6,
-        f'{order_normal[1]}':12,
-        f'{order_normal[2]}':18,
-        f'{order_normal[3]}':24,
-        f'{order_normal[4]}':30, 
-        f'{order_normal[5]}':36,
-        f'{order_normal[6]}':42,
-        f'{order_normal[7]}':48,
-        f'{order_normal[8]}':54,
-        f'{order_normal[9]}':60,
-        }
-
-        ps.concat_df_fit_data(filt_dfs, output_folder, timepoint)
-    else:
-        filt_dfs = []
     return compiled_df, filt_dfs
 
 

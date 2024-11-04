@@ -9,11 +9,11 @@ from smfret.src.processing_scripts import trace_processing as ps
 
 # ------------------ If you want to plot all molecules with a time threshold greater than a defined point ------------------------
 
-def plot_FRET_test(df, treatment, molecule):
+def plot_FRET_test(df, molecule, min_trace_length):
     plt.rcParams['svg.fonttype'] = 'none'
     sns.set_style("whitegrid", {'grid.linestyle':'--'})
     plot2, ax = plt.subplots(figsize=(5, 2))
-    plt.xlim(0, 200, 10)
+    plt.xlim(0, min_trace_length, 10)
     plt.ylim(0, 1.1, 0.2)
     sns.lineplot(x=df["Time"], y=df["smoothed_FRET"], color='black')
     sns.lineplot(x=df["Time"], y=df["idealized FRET"], color='darkorange')
@@ -21,7 +21,7 @@ def plot_FRET_test(df, treatment, molecule):
     [x.set_color('black') for x in ax.spines.values()]
     plt.xlabel("Time (s)")
     plt.ylabel("FRET")
-    plt.title(f'{treatment}-{molecule}')
+    plt.title(f'{molecule}')
     plt.show()
     return plot2, ax
 
@@ -104,7 +104,7 @@ def plot_both(df):
 
 # -------------------------------- MASTER FUNCTION -----------------------------------------
 
-def master_plot_traces_func(input_folder, exposure=0.2, min_trace_length=180):
+def master_plot_traces_func(input_folder, exposure=0.2, min_trace_length=300):
     output_folder = f'{input_folder}/Traces'
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -113,15 +113,15 @@ def master_plot_traces_func(input_folder, exposure=0.2, min_trace_length=180):
     compiled_df['Time'] = compiled_df['frames']/(1/exposure)
     compiled_df["smoothed_FRET"] = savgol_filter(compiled_df["FRET"], 5, 1) 
 
-    for (treatment, molecule), df in compiled_df.groupby(['treatment_name', 'molecule_number']):
+    for (treatment, molecule), df in compiled_df.groupby(['treatment_name', 'unique_id']):
         if df.Time.iloc[-1] > min_trace_length:
-            plot, ax = plot_FRET_test(df, treatment, molecule)
+            plot, ax = plot_FRET_test(df,molecule, min_trace_length)
             plot.savefig(f'{output_folder}/{treatment}_Trace_{molecule}.svg', dpi=600)
         else:
             continue
 
     test = []
-    for (treatment, molecule), df in compiled_df.groupby(['treatment_name', 'molecule_number']):
+    for (treatment, molecule), df in compiled_df.groupby(['treatment_name', 'unique_id']):
         if df.Time.iloc[-1] > min_trace_length:
             test.append(df)
         else:
@@ -130,7 +130,7 @@ def master_plot_traces_func(input_folder, exposure=0.2, min_trace_length=180):
 
     renumbered_mol = []
     for treatment, df in testies.groupby('treatment_name'):
-        mask = df['molecule_number'].ne(df['molecule_number'].shift())
+        mask = df['unique_id'].ne(df['unique_id'].shift())
         df['Change_Count'] = mask.cumsum()
         renumbered_mol.append(df)
     compiled_df_long_renumbered = pd.concat(renumbered_mol)

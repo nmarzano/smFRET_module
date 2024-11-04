@@ -254,7 +254,6 @@ def plot_three_colour_traces(output_folder):
     plt.show()
 
 
-
 def plot_3colour_fret_hist(output_folder="Experiment_1-description/python_results/", FRET_subplot1='Cy3 FRET cascade', FRET_subplot2='AF647 FRET cascade', FRET_thresh=0.5, palette='BuPu'):
     compiled_df_HMM, FRET_bound, plot_export = ps.annotate_data(output_folder=output_folder, FRET_thresh=FRET_thresh)
     plot_FRET_multiple(FRET_bound, FRET_subplot1, FRET_subplot2, save_loc=plot_export)
