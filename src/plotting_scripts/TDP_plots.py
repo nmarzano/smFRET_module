@@ -93,4 +93,4 @@ def master_TDP_plot(palette, input_folder='Experiment_1-description/python_resul
     else:
         for treatment, df in TDP.groupby('treatment_name'):
             treatments = TDP[TDP["treatment_name"] == treatment]
-            tdp_plot(treatments).savefig(f"{output_folder}/TDP_plot_{treatment}.svg", dpi=600)
+            tdp_plot(treatments, palette=palette[treatment]).savefig(f"{output_folder}/TDP_plot_{treatment}.svg", dpi=600)
