@@ -88,7 +88,7 @@ def plot_hist_type(df, order, labels, save_loc, kind='bar'):
 
 # --------------------- code to calculate and plot the proportion of time each molecules spends below a defined threshold ------------------------
 
-def plot_time_below_thresh(df, order, thresh, save_loc, palette='BuPu'):
+def plot_time_below_thresh(df, order, thresh, save_loc, swarmplot=False, palette='BuPu'):
     fig, ax = plt.subplots()
     sns.violinplot(data=df,
                 y='FRET_time_below_thresh',
@@ -96,12 +96,13 @@ def plot_time_below_thresh(df, order, thresh, save_loc, palette='BuPu'):
                 palette=palette,
                 scale='width',
                 order=order)
-    sns.swarmplot(data=df,
-                y='FRET_time_below_thresh',
-                x='treatment_name',
-                color='grey',
-                order=order,
-                alpha=0.25)
+    if swarmplot:
+        sns.swarmplot(data=df,
+                    y='FRET_time_below_thresh',
+                    x='treatment_name',
+                    color='grey',
+                    order=order,
+                    alpha=0.25)
     plt.xlabel('')
     plt.ylabel(f'Proportion of time spent < {thresh} FRET')
     fig.savefig(f'{save_loc}/Time_below_thresh_per_molecule.svg', dpi=600)
@@ -110,7 +111,7 @@ def plot_time_below_thresh(df, order, thresh, save_loc, palette='BuPu'):
 
 # -------------------------------- MASTER FUNCTION -----------------------------------------
 
-def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2):
+def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2, swarmplot=False):
     if isinstance(data_paths, dict):    # --------- the first item in the tuple will be the name that goes into the graph legend -------------
         dict_key = list(data_paths.keys())
         # -------- Data from all data sets in the dict will be imported and concatenated into a single dataframe. Outliers wil be removed -----------
@@ -153,7 +154,7 @@ def master_histogram_func(data_paths, output_folder="Experiment_X-description/py
         filt_df.append(df)
     filt_dfs = pd.concat(filt_df)
     filt_dfs.to_csv(f'{output_folder}/filt_dfs.csv')
-    plot_time_below_thresh(filt_dfs, order_normal, thresh, save_loc=output_folder, palette='BuPu')
+    plot_time_below_thresh(filt_dfs, order_normal, thresh, save_loc=output_folder, palette='BuPu', swarmplot=swarmplot)
     return compiled_df, filt_dfs
 
 
