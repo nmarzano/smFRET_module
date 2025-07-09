@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib
 from smfret.src.Utilities import Data_analysis as util
 import pandas as pd
+import numpy as np
 from smfret.src.processing_scripts import timelapse_hist_processing as ps
 
 
@@ -157,4 +158,65 @@ def master_histogram_func(data_paths, output_folder="Experiment_X-description/py
     plot_time_below_thresh(filt_dfs, order_normal, thresh, save_loc=output_folder, palette='BuPu', swarmplot=swarmplot)
     return compiled_df, filt_dfs
 
+
+def plot_fret_vs_distance(output_folder, R0=51, distance_range=(0, 120), num_points=500, fret_values=(0.05, 0.1), distance_to_mark=None):
+    """
+    Plot FRET efficiency vs. distance curve and mark specific FRET efficiency values or a specific distance.
+
+    Parameters:
+    - output_folder (str): Path to save the plot.
+    - R0 (float): Förster radius in Ångströms.
+    - distance_range (tuple): Range of distances (start, end) in Ångströms.
+    - num_points (int): Number of points to calculate in the distance range.
+    - fret_values (tuple): Specific FRET efficiency values to mark on the plot.
+    - distance_to_mark (float, optional): Specific distance in Ångströms to mark on the plot.
+
+    Returns:
+    - dict: A dictionary containing distances corresponding to the provided FRET efficiency values.
+    - float (optional): FRET efficiency at the specified distance_to_mark (if provided).
+    """
+    # Define distance range
+    r = np.linspace(distance_range[0], distance_range[1], num_points)
+
+    # Calculate FRET efficiency
+    E = 1 / (1 + (r / R0) ** 6)
+
+    # Function to calculate distance from FRET efficiency
+    def calculate_r(E, R0):
+        if not (0 < E < 1):  # Ensure E is within valid range
+            raise ValueError("E must be between 0 and 1 (exclusive).")
+        return R0 * ((1 - E) / E) ** (1 / 6)
+
+    # Calculate distances for the specified FRET efficiency values
+    r_values = {E: calculate_r(E, R0) for E in fret_values}
+
+    # Plot the FRET efficiency vs. distance curve
+    plt.figure(figsize=(8, 5))
+    plt.plot(r, E, label=f'Förster Radius = {R0} Å', color='b')
+
+    # Mark specific FRET efficiency values and corresponding distances
+    for E_value, r_value in r_values.items():
+        plt.axhline(E_value, linestyle='dashed', color='red', label=f'E = {E_value}')
+        plt.axvline(r_value, linestyle='dashed', color='red', label=f'Distance = {r_value:.2f} Å')
+
+    # If a specific distance is provided, calculate and mark the corresponding FRET efficiency
+    fret_at_distance = None
+    if distance_to_mark is not None:
+        fret_at_distance = 1 / (1 + (distance_to_mark / R0) ** 6)
+        plt.axvline(distance_to_mark, linestyle='dotted', color='black', label=f'Distance = {distance_to_mark} Å')
+        plt.axhline(fret_at_distance, linestyle='dotted', color='black', label=f'E = {fret_at_distance:.2f}')
+        print(f"FRET efficiency at distance {distance_to_mark} Å: {fret_at_distance:.2f}")
+
+    plt.xlabel("Distance (Å)")
+    plt.ylabel("FRET Efficiency")
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(f'{output_folder}/FRET_vs_distance.svg', dpi=600)
+    plt.show()
+
+    # Return the distances and optionally the FRET efficiency at the specified distance
+    if distance_to_mark is not None:
+        return r_values, fret_at_distance
+    return r_values
 
