@@ -3,6 +3,9 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import os
+from scipy.optimize import curve_fit
+from scipy.stats import ks_2samp
+from itertools import combinations
 from smfret.src.processing_scripts import synchronised_transition_processing as ps
 
 
@@ -41,9 +44,6 @@ def plot_synchronised_transition(dfs, index_to_plot, exposure_seconds, order, fr
     plt.ylim(0, 0.8)
     fig.savefig(f'{save_loc}/synchronised_release{"_"+label}.svg', dpi=600)
     plt.show()
-
-
-
 
 def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_seconds, order, frame_from_trans, save_loc, palette, add_time=0, label = ''):
     combined_mini = []
@@ -96,10 +96,33 @@ def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_s
     plt.show()
     return filt_data, filt_data2
 
-
 # -------------------- Code to plot the percentage transition data -------------------------------
 
 def plot_summary_transition(save_loc, order, df, palette, filt=True):
+    """
+    Plots a summary of transition data as bar plots, optionally filtering for a specific variable.
+    Parameters
+    ----------
+    save_loc : str
+        The directory path where the resulting plot will be saved.
+    order : list
+        The desired order of the 'treatment' categories for plotting.
+    df : pandas.DataFrame
+        The input DataFrame containing transition data with columns 'treatment', 'repeat', and transition variables.
+    palette : dict or str
+        The color palette to use for the plot. Can be a seaborn palette name or a dictionary mapping treatments to colors.
+    filt : bool, optional
+        If True, filters the data to plot only the '% DnaK release are consecutive' variable. If False, plots all variables. Default is True.
+    Returns
+    -------
+    None
+        The function saves the plot to the specified location and displays it, but does not return any value.
+    Notes
+    -----
+    - The function uses seaborn and matplotlib for plotting.
+    - The plot is saved as 'consecutive_transition_summary.svg' in the specified directory.
+    - The function expects the DataFrame to be in wide format, with transition variables as columns.
+    """
     melted_data = df.melt(id_vars=['treatment', 'repeat'])
     # Ensure the order of the 'treatment' column
     melted_data['treatment'] = pd.Categorical(melted_data['treatment'], categories=order, ordered=True)
@@ -144,6 +167,192 @@ def plot_FRET_after_release(plot_export, df, order, palette='BuPu'):
     plt.ylabel('FRET state after FRET increase')
     plt.xticks(rotation=45)
     plt.savefig(f'{plot_export}/FRET_state_after_increase.svg', dpi=600)
+    plt.show()
+
+# --------------------------------- Code to plot and fit the FRET after release -------------------------------------
+
+def fit_ksdistribution(data, output_folder, palette='BuPu'):
+    """
+    Performs pairwise Kolmogorov-Smirnov (KS) tests on FRET data grouped by treatment, 
+    visualizes the distributions with violin and cumulative distribution plots, 
+    and saves the results and plots to the specified output folder.
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Input DataFrame containing at least the columns 'treatment_name' and 'FRET_after'.
+        Each row should correspond to a measurement, with 'treatment_name' indicating the group.
+    output_folder : str
+        Path to the folder where output plots will be saved.
+    palette : str or dict, optional
+        Color palette for plotting. Can be a seaborn palette name or a dictionary mapping group names to colors.
+        Default is 'BuPu'.
+    Returns
+    -------
+    ks_results : pandas.DataFrame
+        DataFrame containing the results of pairwise KS tests with columns:
+        ["Group 1", "Group 2", "KS Statistic", "p-value"].
+    Side Effects
+    ------------
+    - Saves violin and cumulative distribution plots as SVG and PNG files in the output folder.
+    - Prints the number of non-NaN values per group and the sorted KS test results.
+    Notes
+    -----
+    - Requires seaborn, matplotlib, pandas, and scipy.
+    - Assumes 'FRET_after' is a numeric column.
+    """
+    dict_treatment = {
+        treatment: group['FRET_after']
+        for treatment, group in data.groupby('treatment_name')
+    }
+    df = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in dict_treatment.items()]))
+    for key, values in dict_treatment.items():
+        print(f"{key}: {len(values.dropna())} non-NaN values")
+    # Pairwise KS Test
+    results = []
+    for (group1, group2) in combinations(df.columns, 2):
+        stat, p_value = ks_2samp(df[group1].dropna(), df[group2].dropna())
+        results.append([group1, group2, stat, p_value])
+    # Convert results to a DataFrame
+    ks_results = pd.DataFrame(results, columns=["Group 1", "Group 2", "KS Statistic", "p-value"])
+    # Display results sorted by significance
+    ks_results = ks_results.sort_values(by="p-value")
+    print(ks_results)
+    # Plot Violin Plots
+    fig, ax = plt.subplots()
+    sns.violinplot(data=df, inner="box", palette=palette)
+    fig.savefig(f'{output_folder}/FRET_after_violin.svg', dpi=600)
+    fig.savefig(f'{output_folder}/FRET_after_violin.png', dpi=600)
+    plt.show()
+
+
+    fig, ax = plt.subplots()
+    # Loop through each group and plot its CDF
+    for col in df.columns:
+        if df[col].dropna().empty:
+            print(f"Skipping {col} (empty dataset)")
+            continue
+        sns.ecdfplot(df[col].dropna(), 
+                     label=col, 
+                     color=palette[col] if col in palette else 'gray')
+
+    plt.xlabel("FRET after DnaK release")
+    plt.ylabel("Cumulative Probability")
+    plt.legend()
+    fig.savefig(f'{output_folder}/FRET_after_cumulative.svg', dpi=600)
+    fig.savefig(f'{output_folder}/FRET_after_cumulative.png', dpi=600)
+    plt.show()
+    return ks_results
+
+def exp_func(x, A, k, C):
+    return A * np.exp(-k * x) + C
+
+def extract_exp_kinetics(df, output_folder, exp_func, x='time_from_trans', y='FRET', xlim=(0.5, 10), palette='BuPu'):
+    """
+    Extracts and fits exponential kinetics to FRET data for different treatments, and plots the results.
+    This function filters the input DataFrame based on a specified time window, plots the mean FRET signal
+    over time for each treatment, fits an exponential function to each treatment's data, and overlays the
+    fitted curves on the plot. The fit parameters for each treatment are returned in a dictionary.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input DataFrame containing at least the columns specified by `x`, `y`, and 'treatment_name'.
+    output_folder : str
+        Path to the folder where the output plots will be saved.
+    exp_func : callable
+        Exponential function to fit to the data. Should take x and parameters as arguments.
+    x : str, optional
+        Column name to use as the x-axis (default is 'time_from_trans').
+    y : str, optional
+        Column name to use as the y-axis (default is 'FRET').
+    xlim : tuple of float, optional
+        Tuple specifying the (min, max) range of x values to include in the analysis (default is (0.5, 10)).
+    palette : str or sequence, optional
+        Color palette to use for plotting (default is 'BuPu').
+    Returns
+    -------
+    fit_results : dict
+        Dictionary mapping treatment names to their fitted parameters (A, k, C).
+        Example: {'treatment1': {'A': ..., 'k': ..., 'C': ...}, ...}
+    Saves
+    -----
+    - Line plot with fitted exponential curves as SVG and PNG in `output_folder`.
+    """
+    filt_df = df[(df['time_from_trans'] >= xlim[0]) & (df['time_from_trans'] <= xlim[1])]
+    # Store fit results
+    fit_results = {}
+    # Plot
+    plt.figure(figsize=(8, 6))
+    sns.lineplot(data=filt_df, 
+                 x=x, 
+                 y=y, 
+                 hue="treatment_name", 
+                 estimator="mean", 
+                 ci=68, 
+                 palette=palette)  # or ci=68 for 68% CI
+    # Fit exponential to each treatment
+    for treatment, group in filt_df.groupby("treatment_name"):
+        x_data = group[x].values
+        y_data = group[y].values
+        # Initial guesses for A, k, C
+        p0 = [max(y_data) - min(y_data), 0.3, min(y_data)]
+        try:
+            popt, _ = curve_fit(exp_func, x_data, y_data, p0=p0)
+            A_fit, k_fit, C_fit = popt
+            fit_results[treatment] = {"A": A_fit, "k": k_fit, "C": C_fit}
+            # Plot fitted curve
+            x_fit = np.linspace(xlim[0], xlim[1], 100)
+            y_fit = exp_func(x_fit, *popt)
+            plt.plot(x_fit, y_fit, linestyle="solid", color='black')
+        except RuntimeError:
+            print(f"Fit failed for {treatment}")
+    plt.legend()
+    plt.savefig(f'{output_folder}/DnaK_rebinding_fits.svg', dpi=600)
+    plt.savefig(f'{output_folder}/DnaK_rebinding_fits.png', dpi=600)
+    plt.show()
+    return fit_results
+
+def plot_fit_parameters(fit_results, output_folder, x='index', y='value', palette='BuPu', list_to_keep=None):
+    """
+    Plots bar charts of fit parameters from the provided fit results and saves the figure.
+    Parameters
+    ----------
+    fit_results : dict
+        Dictionary containing fit results, where keys are dataset identifiers and values are parameter dictionaries.
+    output_folder : str
+        Path to the folder where the output plot image will be saved.
+    x : str, optional
+        Column name to use for the x-axis in the bar plots (default is 'index').
+    y : str, optional
+        Column name to use for the y-axis in the bar plots (default is 'value').
+    palette : str or list, optional
+        Color palette to use for the bar plots (default is 'BuPu').
+    list_to_keep : list, optional
+        List of dataset identifiers to include in the plot. Defaults to all keys in `fit_results`.
+    Returns
+    -------
+    None
+        The function saves the generated plot as 'fit_parameters.png' in the specified output folder and displays it.
+    """
+    fits = pd.DataFrame(fit_results)
+    fits = fits.transpose().reset_index().melt(id_vars='index')
+    if list_to_keep is None:
+        list_to_keep = list(fit_results.keys())
+    dropped = fits[fits['index'].isin(list_to_keep)]
+    dropped = dropped[~(dropped['variable'] == 'C')]
+
+    fig, axes = plt.subplots(1, 2, sharey=True)
+    for i, variable in enumerate(list(dropped['variable'].unique())):
+        data = dropped[dropped['variable'] == variable]
+        sns.barplot(data=data,
+                    y=y,
+                    x=x,
+                    ax=axes[i],
+                    palette=palette,
+                    edgecolor='black')
+        axes[i].set_xlabel(variable)
+    plt.tight_layout()
+    fig.savefig(f'{output_folder}/fit_parameters.png', dpi=600)
+    fig.savefig(f'{output_folder}/fit_parameters.png', dpi=600)
     plt.show()
 
 # -------------------------------- MASTER FUNCTION -----------------------------------------
@@ -207,7 +416,7 @@ def master_plot_synchronised_transitions(order, output_folder='Experiment_1-desc
     first_consecutive_transition['consec'] = True
     first_nonconsecutive_transition['consec'] = False
     combined_consec_nonconsec = first_consecutive_transition.append(first_nonconsecutive_transition)
-
+    combined_consec_nonconsec.to_csv(f'{plot_export}/combined_consecutive_nonconsecutive.csv', index=False)
     plot_FRET_after_release(plot_export, combined_consec_nonconsec, order)
 
     filt_data, filt_data2 = plot_synchronised_transition2(dfs=calculated_transitions_df, 
@@ -220,6 +429,7 @@ def master_plot_synchronised_transitions(order, output_folder='Experiment_1-desc
                                                           palette=palette,  
                                                           label='consecutive_transitions', 
                                                           add_time=add_time)
+    
 
     return percent_trans_meet_criteria_df, calculated_transitions_df, consecutive_from_dnak_release, nonconsecutive_from_dnak_release, filt_data, filt_data2, combined_consec_nonconsec
 
