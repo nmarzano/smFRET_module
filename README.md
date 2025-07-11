@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10989968.svg)](10.5281/zenodo.10989968)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10989968.svg)](https://doi.org/10.5281/zenodo.10989969)
 
 # Two- and Three-Colour Single-Molecule FRET Trace Analaysis
 
