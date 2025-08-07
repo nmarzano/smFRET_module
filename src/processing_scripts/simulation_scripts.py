@@ -83,6 +83,7 @@ def plot_binary_state(data, plot_export, threshold_state=1, noise_level=0.05, id
     plt.show()
     return data
 
+
 def analyze_dwell_times(plot_export, threshold_state=0, num_simulations=300, num_states=4, rate_up=1.5, rate_down=0.3, 
                         simulation_time=360, time_step=1, identifier=None, xlim=None):
     """
@@ -157,8 +158,8 @@ def analyze_dwell_times(plot_export, threshold_state=0, num_simulations=300, num
     plt.ylabel('Cumulative Probability')
     plt.legend()
     plt.xlim(-5, xlim if xlim is not None else max(sorted_dwell_times) * 1.1)
-    fig.savefig(f'{plot_export}/cumulative_dwell_times_{identifier}.svg', dpi=600)
-    fig.savefig(f'{plot_export}/cumulative_dwell_times_{identifier}.png', dpi=600)
+    # fig.savefig(f'{plot_export}/cumulative_dwell_times_{identifier}.svg', dpi=600)
+    # fig.savefig(f'{plot_export}/cumulative_dwell_times_{identifier}.png', dpi=600)
     plt.show()
 
     # Print fit parameters
@@ -167,18 +168,74 @@ def analyze_dwell_times(plot_export, threshold_state=0, num_simulations=300, num
 
     print("\nDouble Exponential Fit Parameters:")
     print(f"a1 = {popt_double[0]:.4f}, b1 = {popt_double[1]:.4f}, a2 = {popt_double[2]:.4f}, b2 = {popt_double[3]:.4f}")
-
-    # Print mean dwell time
+    # Calculate mean dwell time and standard error using bootstrapping
     mean_dwell_time = np.mean(all_dwell_times)
+    std_error = np.std(all_dwell_times, ddof=1) / np.sqrt(len(all_dwell_times)) if len(all_dwell_times) > 1 else 0
+    n_dwell = len(all_dwell_times)
+
+    # Bootstrapping for standard error of mean dwell time, k1, and k2
+    n_bootstrap = 500
+    if len(all_dwell_times) > 1:
+        boot_means = []
+        boot_k1 = []
+        boot_k2 = []
+        for _ in range(n_bootstrap):
+            boot_sample = np.random.choice(all_dwell_times, size=len(all_dwell_times), replace=True)
+            boot_means.append(np.mean(boot_sample))
+            # Fit double exponential to bootstrap sample
+            try:
+                # Only fit if all dwell times are positive and greater than zero
+                if np.any(np.array(boot_sample) <= 0):
+                    boot_k1.append(np.nan)
+                    boot_k2.append(np.nan)
+                    continue
+                popt_double_boot, _ = curve_fit(double_exponential, np.sort(boot_sample),
+                                                np.arange(1, len(boot_sample) + 1) / len(boot_sample),
+                                                p0=[0.5, 0.1, 0.5, 0.01], 
+                                                bounds=([0, 0, 0, 0], [1, np.inf, 1, np.inf]), 
+                                                maxfev=5000)
+                # Only accept positive rates
+                if popt_double_boot[1] > 0 and popt_double_boot[3] > 0:
+                    boot_k1.append(popt_double_boot[1])
+                    boot_k2.append(popt_double_boot[3])
+                else:
+                    boot_k1.append(np.nan)
+                    boot_k2.append(np.nan)
+            except Exception:
+                # If fit fails, append nan
+                boot_k1.append(np.nan)
+                boot_k2.append(np.nan)
+        boot_means = np.array(boot_means)
+        boot_k1 = np.array(boot_k1)
+        boot_k2 = np.array(boot_k2)
+        std_error = np.std(boot_means, ddof=1)
+        k1_std_error = np.nanstd(boot_k1, ddof=1)
+        k2_std_error = np.nanstd(boot_k2, ddof=1)
+        ci_lower = np.percentile(boot_means, 2.5)
+        ci_upper = np.percentile(boot_means, 97.5)
+        print(f"Bootstrap Mean Dwell Time: mean={mean_dwell_time:.4f}, std error={std_error:.4f}, 95% CI=({ci_lower:.4f}, {ci_upper:.4f})")
+        print(f"Bootstrap k1: mean={np.nanmean(boot_k1):.4f}, std error={k1_std_error:.4f}")
+        print(f"Bootstrap k2: mean={np.nanmean(boot_k2):.4f}, std error={k2_std_error:.4f}")
+    else:
+        ci_lower = ci_upper = mean_dwell_time  
+        k1_std_error = np.nan
+        k2_std_error = np.nan
     print(f"\nMean Dwell Time: {mean_dwell_time:.4f} seconds")
-    # Create a DataFrame to store fit parameters
+    print(f"Standard Error: {std_error:.4f}")
+    print(f"Number of Dwell Times (n): {n_dwell}")
+
+    # Create a DataFrame to store fit parameters and dwell statistics, including k1/k2 std errors
     fit_parameters_df = pd.DataFrame({
         'Model': ['Single Exponential', 'Double Exponential'],
         'a': [popt_single[0], popt_double[0]],
         'b': [popt_single[1], popt_double[1]],
         'a2': [None, popt_double[2]],
         'b2': [None, popt_double[3]],
-        'mean_dwell_time': [mean_dwell_time, mean_dwell_time]
+        'mean_dwell_time': [mean_dwell_time, mean_dwell_time],
+        'std_error': [std_error, std_error],
+        'n': [n_dwell, n_dwell],
+        'k1_std_error': [None, k1_std_error],
+        'k2_std_error': [None, k2_std_error]
     })
 
     return mean_dwell_time, concatenated_data, fit_parameters_df
@@ -390,12 +447,13 @@ def df_processing_for_plots(results, state_x=2, state_y=1, plot_export=None):
     - The function is designed for use with simulation data from smFRET or similar state-based models.
     - Exported CSVs are saved in the specified `plot_export` directory if provided.
     """
-    combined_average_state_df = pd.concat(
-        [result['average_state_df'].assign(num_states=key[0]) for key, result in results.items()],
-        ignore_index=True)
+    combined_average_state_df = pd.concat([result['average_state_df']
+        .assign(num_states=key[0], rate_up_down=key[1])
+        for key, result in results.items()], ignore_index=True)
+
 
     combined_concat = pd.concat(
-        [result['concatenated_data'].assign(num_states=key[0]) for key, result in results.items()],
+        [result['concatenated_data'].assign(num_states=key[0], rate_up_down=key[1]) for key, result in results.items()],
         ignore_index=True)
 
     # Calculate proportion of time for each num_states spent in state 0 or 1 combined
@@ -410,14 +468,39 @@ def df_processing_for_plots(results, state_x=2, state_y=1, plot_export=None):
     # Extract fits data and analyze dwell times for each unique num_states and rate_up
     fits_data = pd.concat([result['fits'].assign(num_states=num_states, rate_up=rate_up) for (num_states, rate_up), result in results.items()], ignore_index=True)
 
-    # Group by num_states and rate_up, and calculate the mean dwell time for each
-    mean_dwell_times_by_num_states_rate_up = fits_data.groupby(['num_states', 'rate_up'])['mean_dwell_time'].mean().reset_index()
+    # Group by num_states and rate_up, and calculate the mean dwell time, std_error, and n for each
+    mean_dwell_times_by_num_states_rate_up = fits_data.groupby(['num_states', 'rate_up']).agg({
+        'mean_dwell_time': 'mean',
+        'std_error': 'mean',
+        'n': 'mean'
+    }).reset_index()
 
     # Plot the mean values of k1 and k2 as a scatterplot with categorical x-axis (up and down layout)
-    fits_data_mean = fits_data[fits_data['Model'] == 'Double Exponential'].groupby(['num_states']).mean(numeric_only=True).reset_index()
-    fits_data_melted = fits_data_mean.melt(id_vars=['num_states'], value_vars=['b', 'b2'], 
-                                           var_name='Rate Type', value_name='Mean Rate Constant')
+    # Also keep the k1_std_error and k2_std_error
+    fits_data_double = fits_data[fits_data['Model'] == 'Double Exponential']
+    fits_data_mean = fits_data_double.groupby(['num_states', 'rate_up']).agg(
+        k1_mean=('b', 'mean'),
+        k2_mean=('b2', 'mean'),
+        k1_std_error=('k1_std_error', 'mean'),
+        k2_std_error=('k2_std_error', 'mean')
+    ).reset_index()
 
+    # Melt for plotting, keeping std errors
+    fits_data_melted = pd.melt(
+        fits_data_mean,
+        id_vars=['num_states', 'rate_up', 'k1_std_error', 'k2_std_error'],
+        value_vars=['k1_mean', 'k2_mean'],
+        var_name='Rate Type',
+        value_name='Mean Rate Constant'
+    )
+    # Add std error column for each row
+    fits_data_melted['Rate Std Error'] = fits_data_melted.apply(
+        lambda row: row['k1_std_error'] if row['Rate Type'] == 'k1_mean' else row['k2_std_error'], axis=1
+    )
+    # Clean up Rate Type for plotting
+    fits_data_melted['Rate Type'] = fits_data_melted['Rate Type'].map({'k1_mean': 'k1', 'k2_mean': 'k2'})
+
+    
     # Save datasets if plot_export is provided
     if plot_export is not None:
         combined_average_state_df.to_csv(f"{plot_export}/combined_average_state_df.csv", index=False)
@@ -515,5 +598,6 @@ def kinetic_sequence_space_analysis(plot_export,
     results_df['mean_dwell_time'] = results_df['mean_dwell_time'].apply(lambda x: x[0] if isinstance(x, (list, tuple)) else x)
     results_df.to_csv(f'{plot_export}/mean_dwell_time_results.csv', index=False)
     return results_df
+
 
 
