@@ -4,6 +4,10 @@ import matplotlib
 from smfret.src.Utilities import Data_analysis as util
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.gridspec import GridSpec
+
 from smfret.src.processing_scripts import timelapse_hist_processing as ps
 
 
@@ -88,6 +92,86 @@ def plot_hist_type(df, order, labels, save_loc, kind='bar'):
     plt.show()
 
 # --------------------- code to calculate and plot the proportion of time each molecules spends below a defined threshold ------------------------
+# 
+def heatmap_timelapse(output_folder, compiled_df, palette, discriminator='KJEG', subplot_id='native'):
+    for protein, df in compiled_df.groupby('protein'):
+        # Create a gridspec with 2 rows and 2 columns, where the right column is much thinner
+
+        fig = plt.figure(figsize=(8, 4))  # wider to accommodate extra subplot
+        gs = GridSpec(2, 2, width_ratios=[8, 1], height_ratios=[1, 1], wspace=0.05)
+
+        # Main subplots (left)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[1, 0], sharex=ax1, sharey=ax1)
+
+        # Thin subplots (right)
+        ax1_side = fig.add_subplot(gs[0, 1], sharey=ax1)
+        ax2_side = fig.add_subplot(gs[1, 1], sharey=ax2)
+
+        # Main plots (as before, but with 'native' instead of 'KJEG')
+        sns.kdeplot(data=df[~df['treatment_name'].str.contains(f'{discriminator}|{subplot_id}', case=False, na=False)], x='time_rand', y='FRET', cmap='Greys', shade=bool, cbar=False, cbar_kws={'format': '%.0f%%', 'ticks': [0, 50]}, gridsize=50, levels=6, thresh=0.05, ax=ax1)
+        sns.kdeplot(data=df[~df['treatment_name'].str.contains(f'{discriminator}|{subplot_id}', case=False, na=False)],x='time_rand', y='FRET', color='grey', gridsize=50, levels=6, thresh=0.05, ax=ax1)
+
+        sns.kdeplot(data=df[df['treatment_name'].str.contains(f'{discriminator}', case=False, na=False)],x='time_rand', y='FRET', cmap=palette[protein], shade=bool, cbar=False,cbar_kws={'format': '%.0f%%', 'ticks': [0, 25]}, gridsize=50, levels=6, thresh=0.05, ax=ax2)
+        sns.kdeplot(data=df[df['treatment_name'].str.contains(f'{discriminator}', case=False, na=False)],x='time_rand', y='FRET', color='black', gridsize=50, levels=6, thresh=0.05, ax=ax2)
+
+        # Side plots (thinner, e.g. marginal distributions)
+        sns.kdeplot(data=df[df['treatment_name'].str.contains(f'{subplot_id}', case=False, na=False)], x='time_rand', y='FRET', cmap='Greys', shade=bool, cbar=False, cbar_kws={'format': '%.0f%%', 'ticks': [0, 50]}, gridsize=50, levels=5, thresh=0.05, ax=ax1_side)
+        sns.kdeplot(data=df[df['treatment_name'].str.contains(f'{subplot_id}', case=False, na=False)],x='time_rand', y='FRET', color='grey', gridsize=50, levels=5, thresh=0.05, ax=ax1_side)
+
+        sns.kdeplot(data=df[df['treatment_name'].str.contains(f'{subplot_id}', case=False, na=False)],x='time_rand', y='FRET', cmap=palette[protein], shade=bool, cbar=False,cbar_kws={'format': '%.0f%%', 'ticks': [0, 25]}, gridsize=50, levels=5, thresh=0.05, ax=ax2_side)
+        sns.kdeplot(data=df[df['treatment_name'].str.contains(f'{subplot_id}', case=False, na=False)],x='time_rand', y='FRET', color='black', gridsize=50, levels=5, thresh=0.05, ax=ax2_side)
+        # Remove x/y labels from side plots for clarity
+        # Remove x/y labels from side plots for clarity
+        ax1_side.set_xlabel('')
+        ax1_side.set_ylabel('')
+        ax2_side.set_xlabel('')
+        ax2_side.set_ylabel('')
+
+        # Ensure main plots show y-axis label and ticks with numbers
+        ax1.set_ylabel('FRET')
+        ax2.set_ylabel('FRET')
+        ax1.yaxis.set_ticks_position('left')
+        ax2.yaxis.set_ticks_position('left')
+        ax1.yaxis.set_label_position('left')
+        ax2.yaxis.set_label_position('left')
+        ax1.set_yticks(np.linspace(-0.2, 1.2, 8))
+        ax2.set_yticks(np.linspace(-0.2, 1.2, 8))
+        ax1.set_yticklabels([f"{x:.1f}" for x in np.linspace(-0.2, 1.2, 8)])
+        ax2.set_yticklabels([f"{x:.1f}" for x in np.linspace(-0.2, 1.2, 8)])
+
+        # Hide x-tick labels and y-tick labels for side plots (but keep ticks if present)
+        ax1_side.set_xticklabels([])
+        ax1_side.set_yticklabels([])
+        ax2_side.set_xticklabels([])
+        ax2_side.set_yticklabels([])
+
+        # Show x-ticks only on ax2 (bottom plot)
+        plt.setp(ax1.get_xticklabels(), visible=False)
+        ax1.set_xlabel('')
+
+        ax2.set_xlabel('Time (s)')
+
+        plt.tight_layout()
+        plt.ylim(-0.2, 1.2)
+        plt.xlabel('Native')
+        plt.savefig(f'{output_folder}/histogram_heatmap_{protein}.svg', dpi=600)
+        plt.show()
+
+def timelapse_mapping(directory, timepoint):
+    compiled_df = pd.read_csv(f'{directory}/Cleaned_FRET_histogram_data.csv')
+    compiled_df['timepoint'] = compiled_df['treatment_name'].str.split('_').str[-1]
+    compiled_df['protein'] = compiled_df['treatment_name'].str.split('_').str[0]
+    compiled_df['timepoint_plot'] = compiled_df['timepoint'].map(timepoint)
+    compiled_df['time_rand'] = compiled_df['timepoint_plot'].apply(lambda y: np.random.uniform(y, y - 6))
+
+    filt_dfs = pd.read_csv(f'{directory}/filt_dfs.csv')
+    filt_dfs['timepoint'] = filt_dfs['treatment_name'].str.split('_').str[-1]
+    filt_dfs['protein'] = filt_dfs['treatment_name'].str.split('_').str[0]
+    filt_dfs['timepoint_plot'] = filt_dfs['timepoint'].map(timepoint)
+    filt_dfs['time_rand'] = filt_dfs['timepoint_plot'].apply(lambda y: np.random.uniform(y, y - 6))
+    return compiled_df, filt_dfs
+    
 
 def plot_time_below_thresh(df, order, thresh, save_loc, swarmplot=False, palette='BuPu'):
     fig, ax = plt.subplots()
@@ -110,6 +194,7 @@ def plot_time_below_thresh(df, order, thresh, save_loc, swarmplot=False, palette
     plt.xticks(rotation=45)
     plt.show()
 
+    
 # -------------------------------- MASTER FUNCTION -----------------------------------------
 
 def master_histogram_func(data_paths, output_folder="Experiment_X-description/python_results", thresh=0.2, swarmplot=False):
