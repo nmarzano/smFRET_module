@@ -10,7 +10,7 @@ from smfret.src.processing_scripts import synchronised_transition_processing as 
 
 
 
-def plot_synchronised_transition(dfs, index_to_plot, exposure_seconds, order, frame_from_trans, save_loc, palette, label=''):
+def plot_synchronised_transition(dfs, index_to_plot, exposure_seconds, order, frame_from_trans, save_loc, palette, label='', ylim=(0, 0.8)):
     """plots the FRET values either side of a transition type of interest
 
     Args:
@@ -41,11 +41,11 @@ def plot_synchronised_transition(dfs, index_to_plot, exposure_seconds, order, fr
     sns.lineplot(data=combined_mini, x='time_from_trans', y='FRET', hue='treatment_name', palette=palette, hue_order=order)
     plt.xlabel('Time (s)')
     plt.legend(title='',loc='best')
-    plt.ylim(0, 0.8)
+    plt.ylim(ylim)
     fig.savefig(f'{save_loc}/synchronised_release{"_"+label}.svg', dpi=600)
     plt.show()
 
-def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_seconds, order, frame_from_trans, save_loc, palette, add_time=0, label = ''):
+def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_seconds, order, frame_from_trans, save_loc, palette, add_time=0, label = '', ylim=(0, 0.8)):
     combined_mini = []
     for df in index_to_plot:
         print(df)
@@ -92,6 +92,7 @@ def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_s
     # plt.legend(title = '',loc = 'best')
     ax1.legend('',loc='upper left')
     ax2.legend('')
+    plt.ylim(ylim)
     fig.savefig(f'{save_loc}/synchronised_release{"_"+label}.svg', dpi = 600)
     plt.show()
     return filt_data, filt_data2
@@ -100,39 +101,108 @@ def plot_synchronised_transition2(dfs, index_to_plot, index_to_plot2, exposure_s
 
 def plot_summary_transition(save_loc, order, df, palette, filt=True):
     """
-    Plots a summary of transition data as bar plots, optionally filtering for a specific variable.
+    Plot a summary barplot of transition proportions and optionally overlay individual data points.
+    This function expects a DataFrame containing at least the columns 'treatment' and 'repeat'
+    plus one or more measurement columns (one commonly used column in this code is
+    '% DnaK release are consecutive'). The DataFrame is first melted so that measurement
+    columns become a single 'variable' column with associated 'value's. The 'treatment'
+    column is converted to a categorical with the provided ordering so that plotting
+    respects the requested order.
+    Behavior
+    - If filt is False:
+        - Plots a grouped barplot of value (y) vs. variable (x) with bars colored by treatment.
+    - If filt is True:
+        - Filters the melted data to rows where variable == "% DnaK release are consecutive".
+        - Plots a single bar per treatment showing the aggregate (Seaborn's default estimator).
+        - Overlays individual data points jittered horizontally so they do not overlap.
+        - Point colors follow the provided palette and points include black edgecolors.
+    The function saves the resulting figure as an SVG to:
+        {save_loc}/consecutive_transition_summary.svg
+    and also displays the figure with plt.show().
     Parameters
     ----------
-    save_loc : str
-        The directory path where the resulting plot will be saved.
-    order : list
-        The desired order of the 'treatment' categories for plotting.
+    save_loc : str or os.PathLike
+        Directory path where the SVG file will be saved. Must be writable.
+    order : sequence of str
+        Ordered sequence of treatment names. This determines the categorical order for
+        the 'treatment' column and the plotting order/legend order.
     df : pandas.DataFrame
-        The input DataFrame containing transition data with columns 'treatment', 'repeat', and transition variables.
-    palette : dict or str
-        The color palette to use for the plot. Can be a seaborn palette name or a dictionary mapping treatments to colors.
-    filt : bool, optional
-        If True, filters the data to plot only the '% DnaK release are consecutive' variable. If False, plots all variables. Default is True.
+        Input wide-format DataFrame containing:
+          - 'treatment' (categorical or string-like): group/treatment labels
+          - 'repeat' (identifier for repeated measurements)
+          - one or more measurement columns (these become 'variable' after melt),
+            e.g. '% DnaK release are consecutive'
+    palette : dict or seaborn-compatible palette
+        Color specification. Two accepted forms:
+          - dict mapping treatment name -> color (hex or color name). If a treatment
+            is missing from the dict, a default gray ("#333333") is used.
+          - any value accepted by seaborn.color_palette (e.g., palette name string or list of colors).
+    filt : bool, optional (default: True)
+        If True, plot only the '% DnaK release are consecutive' variable and overlay
+        jittered individual data points on the treatment bars. If False, plot all
+        variables on the x-axis with treatment as the hue (grouped barplot).
     Returns
     -------
     None
-        The function saves the plot to the specified location and displays it, but does not return any value.
+        The function saves the figure to disk and shows it interactively; it does not
+        return the figure or axes (though these are created internally).
     Notes
     -----
-    - The function uses seaborn and matplotlib for plotting.
-    - The plot is saved as 'consecutive_transition_summary.svg' in the specified directory.
-    - The function expects the DataFrame to be in wide format, with transition variables as columns.
+    - Dependencies: pandas (pd), seaborn (sns), matplotlib.pyplot (plt), numpy (np).
+    - The function sets a fixed jitter_scale (0.08) for the horizontal jitter of points;
+      adjust the code if a different spread is desired.
+    - The plotted y-axis label is 'Proportion of transitions (%)' and the x-axis label is omitted.
+    - The function assumes that the DataFrame will melt correctly with id_vars ['treatment', 'repeat'].
+    - If using a custom palette dict, ensure the keys match values found in the 'treatment' column.
+    Example
+    -------
+    # Assuming `df` contains the required columns and packages are imported:
+    plot_summary_transition(save_loc='results/figs',
+                            order=['control', 'treatmentA', 'treatmentB'],
+                            df=df,
+                            palette={'control': '#1f77b4', 'treatmentA': '#ff7f0e', 'treatmentB': '#2ca02c'},
+                            filt=True)
     """
     melted_data = df.melt(id_vars=['treatment', 'repeat'])
     # Ensure the order of the 'treatment' column
     melted_data['treatment'] = pd.Categorical(melted_data['treatment'], categories=order, ordered=True)
     fig, ax = plt.subplots(figsize=(3, 6))
-    sns.set_style('ticks',{'grid.linestyle':'--', 'font_scale': 1.5})
-    if filt == False:
-        sns.barplot(data=melted_data, y='value', x='variable', hue='treatment', palette=palette, hue_order=order, edgecolor='black', order=order)
+    sns.set_style('ticks', {'grid.linestyle':'--', 'font_scale': 1.5})
+
+    # Normalize palette: allow either a dict mapping treatment -> color, or a seaborn palette name/list
+    if isinstance(palette, dict):
+        palette_for_hue = palette
+        # create a list of colors in order for internal usage
+        palette_colors = [palette.get(t, "#333333") for t in order]
+        color_map = palette  # mapping treatment -> color
     else:
-        ax = sns.barplot(data=melted_data[melted_data['variable']=='% DnaK release are consecutive'], y='value', x='treatment', palette='BuPu', hue_order=order, edgecolor='black', fill=False, order=order, capsize=.2, errcolor='black')
-        sns.scatterplot(data=melted_data[melted_data['variable']=='% DnaK release are consecutive'], y='value', x='treatment', hue='treatment', palette='BuPu', hue_order=order, edgecolor='black', ax=ax, s=200)
+        palette_for_hue = sns.color_palette(palette, n_colors=len(order))
+        palette_colors = palette_for_hue
+        color_map = dict(zip(order, palette_colors))
+
+    if filt == False:
+        sns.barplot(data=melted_data, y='value', x='variable', hue='treatment',
+                    palette=palette_for_hue, hue_order=order, edgecolor='black', order=order)
+    else:
+        # Use hue='treatment' so each treatment can be colored according to palette_for_hue
+        ax = sns.barplot(data=melted_data[melted_data['variable']=='% DnaK release are consecutive'],
+                         y='value', x='treatment', hue='treatment', palette=palette_for_hue,
+                         edgecolor='black', order=order, capsize=.2, errcolor='black', dodge=False)
+
+        # Jitter the datapoints so they don't overlap
+        df_points = melted_data[melted_data['variable'] == '% DnaK release are consecutive'].copy()
+        # map treatments to numeric x positions (0..n-1) using categorical codes
+        x_codes = df_points['treatment'].cat.codes.values
+        # small gaussian jitter; adjust scale for tighter/looser spread
+        jitter_scale = 0.08
+        jitter = np.random.normal(loc=0, scale=jitter_scale, size=len(x_codes))
+        x_jittered = x_codes + jitter
+
+        # get color for each treatment from the color_map
+        colors = [color_map.get(t, "#333333") for t in df_points['treatment'].astype(str)]
+
+        ax.scatter(x_jittered, df_points['value'].values, c=colors, edgecolors='black',
+                   s=120, linewidths=0.8, zorder=10, alpha=0.9)
 
     plt.xlabel('')
     plt.xticks(rotation=45)
@@ -355,9 +425,28 @@ def plot_fit_parameters(fit_results, output_folder, x='index', y='value', palett
     fig.savefig(f'{output_folder}/fit_parameters.png', dpi=600)
     plt.show()
 
+def TwoD_heatmap(df, output_folder, colors):
+    os.makedirs(output_folder, exist_ok=True)
+    for treatment, df_t in df.groupby('treatment_name'):
+        if df_t.empty:
+            continue
+        plt.subplots(figsize=(6, 4))
+        ax = plt.gca()
+        col = colors.get(treatment, 'steelblue')
+        # draw the vertical line with a low z-order so it sits below the KDE plots
+        ax.axvline(0, color='darkorange', linestyle='--', zorder=1)
+        sns.kdeplot(data=df_t, x='time_from_trans', y='FRET', bw_adjust=0.5, color=col, fill=True, zorder=2)
+        sns.kdeplot(data=df_t, x='time_from_trans', y='FRET', bw_adjust=0.5, fill=False, color='black', zorder=3)
+        plt.title(str(treatment))
+        plt.tight_layout()
+        plt.ylim(-0.2, 1.1)
+        plt.xlabel('Time from transition (s)')
+        plt.ylabel('FRET efficiency')
+        plt.savefig(os.path.join(output_folder, f'kde_time_FRET_{treatment}.svg'), dpi=300)
+        plt.show()
 # -------------------------------- MASTER FUNCTION -----------------------------------------
     
-def master_plot_synchronised_transitions(order, output_folder='Experiment_1-description/python_results', exposure=0.2, frames_to_plot=50, FRET_before=0.3,FRET_after=0.3, datatype='Proportion', filt=True, palette='BuPu', add_time=0):
+def master_plot_synchronised_transitions(order, output_folder='Experiment_1-description/python_results', exposure=0.2, frames_to_plot=50, FRET_before=0.3,FRET_after=0.3, datatype='Proportion', filt=True, palette='BuPu', add_time=0, ylim=(0, 0.8)):
     plot_export = f'{output_folder}/synchronised_transitions/'
     if not os.path.exists(plot_export):
         os.makedirs(plot_export)
@@ -402,8 +491,8 @@ def master_plot_synchronised_transitions(order, output_folder='Experiment_1-desc
     consecutive_from_dnak_release = ps.filt_df_to_plot(consecutive_trans, FRET_before, FRET_after,'low_to_high', frames_to_plot)
     nonconsecutive_from_dnak_release = ps.filt_df_to_plot(nonconsecutive_trans, FRET_before, FRET_after,'low_to_high', frames_to_plot)
 
-    plot_synchronised_transition(calculated_transitions_df, consecutive_from_dnak_release, exposure, order, frames_to_plot, plot_export, palette, label='consecutive_transitions')
-    plot_synchronised_transition(calculated_transitions_df, nonconsecutive_from_dnak_release, exposure, order, frames_to_plot, plot_export, palette, label='non-consecutive_transition')
+    plot_synchronised_transition(calculated_transitions_df, consecutive_from_dnak_release, exposure, order, frames_to_plot, plot_export, palette, label='consecutive_transitions',ylim=ylim)
+    plot_synchronised_transition(calculated_transitions_df, nonconsecutive_from_dnak_release, exposure, order, frames_to_plot, plot_export, palette, label='non-consecutive_transition',ylim=ylim)
 
 
     plot_summary_transition(plot_export, order, percent_trans_meet_criteria_df, palette, filt=filt)
@@ -428,7 +517,8 @@ def master_plot_synchronised_transitions(order, output_folder='Experiment_1-desc
                                                           save_loc=plot_export, 
                                                           palette=palette,  
                                                           label='consecutive_transitions', 
-                                                          add_time=add_time)
+                                                          add_time=add_time, 
+                                                          ylim=ylim)
     
 
     return percent_trans_meet_criteria_df, calculated_transitions_df, consecutive_from_dnak_release, nonconsecutive_from_dnak_release, filt_data, filt_data2, combined_consec_nonconsec
