@@ -56,9 +56,10 @@ Will take the raw data from multiple treatments and concatenate into a single da
 **(Hsp70 modelling)**
 This script is used to simulate kinetic models of Hsp70 binding to client protein by providing a simple set of parameters, which can likely be determined experimentally (i.e., kon, koff and number of binding sites). Transitions between different chaperone-bound states are then simulated, used to generate theoretical FRET trajectories that allow kinetic details (e.g., dwell/residence times, occurence of transitions of interest, etc) to be predicted. This provides a useful avenue by which experimental smFRET data can be compared to simulations, which informs on biological mechanisms. 
 
-Note on run times: Individual functions within the scripts should run in a matter of minutes, although this will depend on the number of molecules being analysed. The most time-consuming step is fitting three-colour data to a HMM model using the deepfret_nm module, which can take up to an hour depending on the number of molecules being analysed.
+**Note on run times:** 
+Individual functions within the scripts should run in a matter of minutes, although this will depend on the number of molecules being analysed. The most time-consuming step is fitting three-colour data to a HMM model using the deepfret_nm module, which can take up to an hour depending on the number of molecules being analysed.
 
-Note on expected output: Each script will generate a series of figures that are saved within the relevant treatment folder (e.g., histograms, FRET traces, TDPs, etc). In addition, processed data files are also saved as .csv files for downstream analysis. 
+**Note on expected output:** Each script will generate a series of figures that are saved within the relevant treatment folder (e.g., histograms, FRET traces, TDPs, etc). In addition, processed data files are also saved as .csv files for downstream analysis. 
 
 ### Data source
 
